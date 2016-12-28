@@ -6,7 +6,7 @@ setup(
     version='1.9.1',
     author='Steven Tobin',
     author_email='steventtobin@gmail.com',
-    url='https://github.com/redacted/XKCD-password-generator',
+    url='https://github.com/dchevitarese/XKCD-password-generator',
     description='Generate secure multiword passwords/passphrases, inspired by XKCD',
     long_description=open('README.rst').read(),
     packages=['xkcdpass'],

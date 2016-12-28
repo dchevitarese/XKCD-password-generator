@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # encoding: utf-8
 
-import random
+import argparse
+import math
 import os
 import os.path
-import argparse
+import random
 import re
-import math
 import sys
 
 __LICENSE__ = """
@@ -44,12 +44,11 @@ except AttributeError as ex:
                      "secure random number generator or you are using Python "
                      "version < 2.4.\n")
     if "XKCDPASS_ALLOW_WEAKRNG" in os.environ or \
-       "--allow-weak-rng" in sys.argv:
+                    "--allow-weak-rng" in sys.argv:
         sys.stderr.write("Continuing with less-secure generator.\n")
         rng = random.Random
     else:
         raise ex
-
 
 # Python 3 compatibility
 if sys.version_info[0] >= 3:
@@ -186,12 +185,18 @@ def find_acrostic(acrostic, worddict):
     return words
 
 
+def rand_upper(word):
+    if random.random() > 0.5:
+        return word.upper()
+    return word.lower()
+
+
 def choose_words(wordlist, numwords):
     """
     Choose numwords randomly from wordlist
     """
 
-    return [rng().choice(wordlist) for i in xrange(numwords)]
+    return [rand_upper(rng().choice(wordlist)) for i in xrange(numwords)]
 
 
 def try_input(prompt, validate):
@@ -211,11 +216,21 @@ def try_input(prompt, validate):
     return validate(answer)
 
 
+def add_pad(passwd, padding, delimiter):
+    range_start = 10 ** (padding - 1)
+    range_end = (10 ** padding) - 1
+    beg = random.randint(range_start, range_end)
+    end = random.randint(range_start, range_end)
+    new_passwd = delimiter.join([str(beg), passwd, str(end)])
+    return new_passwd
+
+
 def generate_xkcdpassword(wordlist,
-                          numwords=6,
+                          numwords=4,
                           interactive=False,
                           acrostic=False,
-                          delimiter=" "):
+                          delimiter=" ",
+                          padding=0):
     """
     Generate an XKCD-style password from the words in wordlist.
     """
@@ -233,7 +248,7 @@ def generate_xkcdpassword(wordlist,
         else:
             passwd = delimiter.join(find_acrostic(acrostic, worddict))
 
-        return passwd
+        return add_pad(passwd, padding, delimiter)
 
     # else, interactive session
     # define input validators
@@ -272,6 +287,8 @@ def generate_xkcdpassword(wordlist,
             passwd = delimiter.join(choose_words(wordlist, numwords))
         else:
             passwd = delimiter.join(find_acrostic(acrostic, worddict))
+
+        passwd = add_pad(passwd, padding, delimiter)
         print("Generated: " + passwd)
         accepted = try_input("Accept? [yN] ", accepted_validator)
 
@@ -282,12 +299,12 @@ def emit_passwords(wordlist, options):
     """ Generate the specified number of passwords and output them. """
     count = options.count
     while count > 0:
-        print(generate_xkcdpassword(
-            wordlist,
-            interactive=options.interactive,
-            numwords=options.numwords,
-            acrostic=options.acrostic,
-            delimiter=options.delimiter))
+        print(generate_xkcdpassword(wordlist,
+                                    interactive=options.interactive,
+                                    numwords=options.numwords,
+                                    acrostic=options.acrostic,
+                                    delimiter=options.delimiter,
+                                    padding=options.padding))
         count -= 1
 
 
@@ -309,15 +326,15 @@ class XkcdPassArgumentParser(argparse.ArgumentParser):
                 " of valid words from which to generate passphrases."))
         self.add_argument(
             "--min",
-            dest="min_length", type=int, default=5, metavar="MIN_LENGTH",
+            dest="min_length", type=int, default=4, metavar="MIN_LENGTH",
             help="Generate passphrases containing at least MIN_LENGTH words.")
         self.add_argument(
             "--max",
-            dest="max_length", type=int, default=9, metavar="MAX_LENGTH",
+            dest="max_length", type=int, default=20, metavar="MAX_LENGTH",
             help="Generate passphrases containing at most MAX_LENGTH words.")
         self.add_argument(
             "-n", "--numwords",
-            dest="numwords", type=int, default=6, metavar="NUM_WORDS",
+            dest="numwords", type=int, default=4, metavar="NUM_WORDS",
             help="Generate passphrases containing exactly NUM_WORDS words.")
         self.add_argument(
             "-i", "--interactive",
@@ -341,12 +358,16 @@ class XkcdPassArgumentParser(argparse.ArgumentParser):
             help="Generate passphrases with an acrostic matching ACROSTIC.")
         self.add_argument(
             "-c", "--count",
-            dest="count", type=int, default=1, metavar="COUNT",
+            dest="count", type=int, default=3, metavar="COUNT",
             help="Generate COUNT passphrases.")
         self.add_argument(
             "-d", "--delimiter",
-            dest="delimiter", default=" ", metavar="DELIM",
+            dest="delimiter", default="-", metavar="DELIM",
             help="Separate words within a passphrase with DELIM.")
+        self.add_argument(
+            "-p", "--padding",
+            dest="padding", type=int, default=3, metavar="PAD",
+            help="How many numbers used as PAD before and after the password.")
         self.add_argument(
             "--allow-weak-rng",
             action="store_true", dest="allow_weak_rng", default=False,
